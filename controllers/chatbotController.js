@@ -3,7 +3,7 @@ const { gerarResposta } = require("../services/chatbotService");
 function responderMensagem(req, res) {
     const mensagem = req.body.mensagem.toLowerCase();
 
-    // Usuário temporário enquanto não conectamos ao WhatsApp
+    // Usuário temporário 
     const usuario = "teste";
 
     console.log("Mensagem recebida:", mensagem);
