@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "test": "tsx src/tests/validacaoFluxo.test.ts && tsx src/tests/integracaoHttp.test.ts",
     "start": "node dist/server.js"
   },
   "dependencies": {

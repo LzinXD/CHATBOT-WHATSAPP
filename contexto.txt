@@ -1,0 +1,651 @@
+Quero que você faça uma reestruturação completa do chatbot do projeto PortMind AI para a NOVA versão do produto.
+
+IMPORTANTE:
+Antes de alterar qualquer código, analise a estrutura atual do projeto, os arquivos existentes, a arquitetura em TypeScript, as rotas, controllers, services e integrações já implementadas.
+
+NÃO recrie o projeto do zero.
+NÃO remova funcionalidades existentes sem justificar.
+NÃO altere arquivos fora do escopo sem necessidade.
+NÃO invente integrações ou APIs que ainda não existem.
+Primeiro analise o código atual e depois proponha/execute a alteração.
+
+==================================================
+1. CONTEXTO ATUAL DO PORTMIND AI
+==================================================
+
+O PortMind AI foi reposicionado.
+
+A versão antiga era baseada principalmente em:
+câmeras → Visão Computacional → detecção de vazamento.
+
+Essa não é mais a concepção principal.
+
+A nova solução utiliza prioritariamente os sensores de pressão já existentes nas tubulações.
+
+O conceito agora é:
+
+Sensores de pressão
+→ coleta de dados
+→ análise do comportamento dos sensores
+→ identificação de possível anomalia
+→ indicação de trecho provável/prioritário
+→ geração de alerta
+→ WhatsApp
+→ validação humana
+→ confirmação ou rejeição
+→ atualização da ocorrência
+→ armazenamento do resultado.
+
+A IA/software NÃO deve afirmar que existe um vazamento com certeza.
+
+Ela deve indicar:
+
+"Possível vazamento"
+ou
+"Possível anomalia"
+
+e apresentar o trecho provável/prioritário para inspeção.
+
+Nunca utilizar "localização exata" como regra do sistema.
+
+==================================================
+2. OBJETIVO DO CHATBOT
+==================================================
+
+O chatbot do WhatsApp não será o responsável pela detecção.
+
+A detecção acontece no PortMind AI.
+
+O chatbot será responsável principalmente por:
+
+1. Receber o alerta gerado pelo PortMind.
+2. Apresentar ao responsável as informações da ocorrência.
+3. Perguntar se a suspeita estava correta.
+4. Solicitar uma confirmação humana.
+5. Permitir CONFIRMAR ou REJEITAR.
+6. Enviar essa decisão de volta ao backend.
+7. Atualizar o estado da ocorrência.
+8. Registrar a decisão para histórico.
+9. Posteriormente permitir consulta de ocorrências, caso essa funcionalidade seja mantida.
+
+==================================================
+3. NOVO FLUXO PRINCIPAL DO CHATBOT
+==================================================
+
+O fluxo principal deverá ser iniciado pelo sistema, e não necessariamente pelo usuário.
+
+Exemplo:
+
+O PortMind identifica uma possível anomalia:
+
+Duto: D02
+Trecho provável: D-E
+Horário: 15:42
+Sensores envolvidos: D e E
+
+O sistema deve gerar uma mensagem como:
+
+"🚨 PORTMIND AI — POSSÍVEL ANOMALIA
+
+Foi identificada uma possível anomalia na tubulação.
+
+Duto: D02
+Trecho provável: D–E
+Horário: 15:42
+
+Verifique a situação no local.
+
+A detecção estava correta?
+
+[ CONFIRMAR ]
+[ REJEITAR ]"
+
+==================================================
+4. PERGUNTA DE CONFIRMAÇÃO
+==================================================
+
+Essa é uma mudança obrigatória.
+
+Depois de apresentar a possível ocorrência, o bot deve perguntar explicitamente ao usuário:
+
+"A detecção estava correta?"
+
+O usuário deve poder responder:
+
+1 - CONFIRMAR
+2 - REJEITAR
+
+Também deve ser possível aceitar textos equivalentes, por exemplo:
+
+"confirmar"
+"sim"
+"correto"
+"rejeitar"
+"não"
+"falso positivo"
+
+Se possível, normalizar essas respostas.
+
+==================================================
+5. ESTADO DA CONVERSA
+==================================================
+
+O chatbot deve utilizar estado por usuário.
+
+Exemplo:
+
+Estado inicial:
+IDLE
+
+Quando um alerta for enviado:
+AGUARDANDO_VALIDACAO
+
+Se o usuário confirmar:
+CONFIRMADO
+
+Se o usuário rejeitar:
+REJEITADO
+
+Depois da resposta:
+retornar para IDLE
+
+O estado deve estar associado ao identificador do usuário/telefone.
+
+NÃO utilizar usuário fixo como "teste" na lógica definitiva.
+
+A implementação deve estar preparada para futuramente utilizar o número real do WhatsApp como identificador.
+
+==================================================
+6. EXEMPLO DE FLUXO
+==================================================
+
+Sistema:
+
+"🚨 PORTMIND AI — POSSÍVEL ANOMALIA
+
+Duto: D02
+Trecho provável: D–E
+Horário: 15:42
+
+Verifique a situação no local.
+
+A detecção estava correta?
+
+1 - Confirmar
+2 - Rejeitar"
+
+Usuário:
+
+1
+
+Bot:
+
+"Ocorrência confirmada.
+
+A validação foi registrada no sistema."
+
+Backend deve receber/registrar algo conceitualmente como:
+
+status_da_ocorrencia = CONFIRMADA
+validacao_humana = CONFIRMADA
+
+--------------------------------------------------
+
+Outro cenário:
+
+Usuário:
+
+2
+
+Bot:
+
+"Ocorrência rejeitada.
+
+A rejeição foi registrada no sistema."
+
+Backend deve registrar:
+
+status_da_ocorrencia = REJEITADA
+validacao_humana = REJEITADA
+
+==================================================
+7. TELEMETRIA X OCORRÊNCIA
+==================================================
+
+É obrigatório separar esses dois conceitos.
+
+ESTADO DA TELEMETRIA:
+
+Representa o comportamento dos sensores.
+
+Exemplos:
+
+NORMAL
+ATENÇÃO
+SUSPEITO
+CRÍTICO
+
+ESTADO DA OCORRÊNCIA:
+
+Representa o processo operacional.
+
+Exemplos:
+
+AGUARDANDO_VALIDACAO
+CONFIRMADA
+REJEITADA
+EM_ATENDIMENTO
+RESOLVIDA
+
+IMPORTANTE:
+
+Se o operador rejeitar um alerta, isso NÃO deve necessariamente transformar a telemetria em normal.
+
+Exemplo:
+
+Operador:
+REJEITAR
+
+Sistema:
+
+"Ocorrência rejeitada pelo operador."
+
+Mas se os sensores ainda apresentarem comportamento anormal, a telemetria deve continuar como suspeita.
+
+==================================================
+8. NORMALIZAÇÃO
+==================================================
+
+Após a correção da situação física, a pressão poderá retornar ao comportamento esperado.
+
+O sistema poderá receber uma atualização de normalização.
+
+Exemplo:
+
+"Telemetria normalizada."
+
+IMPORTANTE:
+
+Normalização da telemetria não significa automaticamente que uma ocorrência confirmada está encerrada.
+
+Uma ocorrência confirmada pode continuar:
+
+EM_ATENDIMENTO
+
+e somente depois ser marcada:
+
+RESOLVIDA
+
+==================================================
+9. ESTRUTURA DO CÓDIGO
+==================================================
+
+Manter arquitetura organizada em TypeScript.
+
+Preferencialmente manter separação:
+
+src/
+├── server.ts
+├── routes/
+├── controllers/
+├── services/
+└── ...
+
+Adaptar os arquivos existentes em vez de criar duplicações.
+
+Se já existirem:
+
+chatbotService
+estadoService
+chatbotController
+mensagemRoutes
+
+reutilizar e melhorar esses componentes.
+
+Evitar colocar toda a regra de negócio no controller.
+
+A regra do chatbot deve permanecer nos services.
+
+==================================================
+10. NOVOS MODELOS DE DADOS
+==================================================
+
+Caso ainda não existam, preparar interfaces/types para representar uma ocorrência.
+
+Exemplo conceitual:
+
+interface Incidente {
+    id: string;
+    duto: string;
+    trechoProvavel?: string;
+    horario: string;
+    sensores?: string[];
+    status: StatusOcorrencia;
+    validacaoHumana?: ValidacaoHumana;
+}
+
+Criar enums/types equivalentes, se fizer sentido.
+
+Exemplo:
+
+type StatusOcorrencia =
+    | "AGUARDANDO_VALIDACAO"
+    | "CONFIRMADA"
+    | "REJEITADA"
+    | "EM_ATENDIMENTO"
+    | "RESOLVIDA";
+
+type ValidacaoHumana =
+    | "CONFIRMADA"
+    | "REJEITADA";
+
+Não inventar campos que não sejam necessários.
+
+==================================================
+11. ALERTA RECEBIDO PELO CHATBOT
+==================================================
+
+Preparar o chatbot para futuramente receber do backend algo semelhante a:
+
+{
+    "id": "INC-12345",
+    "duto": "D02",
+    "trechoProvavel": "D-E",
+    "horario": "15:42",
+    "sensores": ["D", "E"],
+    "criticidade": "alta"
+}
+
+O chatbot deve transformar esses dados em uma mensagem legível.
+
+==================================================
+12. CONSULTA DE INCIDENTES
+==================================================
+
+A funcionalidade anterior de consulta de incidentes pode permanecer como funcionalidade secundária.
+
+Exemplo:
+
+Usuário:
+
+"incidente"
+
+Bot:
+
+"Informe o código do incidente."
+
+Usuário:
+
+"INC-12345"
+
+Bot consulta o backend e retorna os dados disponíveis.
+
+IMPORTANTE:
+Essa funcionalidade não é mais o fluxo principal do chatbot.
+
+O fluxo principal é:
+
+detecção → alerta → WhatsApp → validação humana.
+
+==================================================
+13. REMOVER LÓGICA ANTIGA DE CHATBOT GENÉRICO
+==================================================
+
+Não manter respostas genéricas como:
+
+"Olá! Como posso ajudar?"
+
+como principal função do sistema.
+
+Uma saudação pode existir, mas deve ser contextualizada ao PortMind AI.
+
+O chatbot deve ser orientado a operação.
+
+Exemplo:
+
+"Olá. Sou o assistente operacional do PortMind AI."
+
+==================================================
+14. RESPOSTAS NATURAIS
+==================================================
+
+O chatbot deve reconhecer variações simples:
+
+Confirmar:
+
+"1"
+"confirmar"
+"confirma"
+"sim"
+"correto"
+"está correto"
+
+Rejeitar:
+
+"2"
+"rejeitar"
+"rejeito"
+"não"
+"falso"
+"falso positivo"
+
+Se houver ambiguidade:
+
+"Não consegui identificar sua resposta.
+
+Responda:
+1 - Confirmar
+2 - Rejeitar"
+
+==================================================
+15. PREPARAÇÃO PARA WHATSAPP REAL
+==================================================
+
+A implementação deve ser feita de forma que a integração futura com WhatsApp Business API seja simples.
+
+Separar:
+
+Lógica do chatbot
+≠
+Transporte da mensagem
+
+Ou seja, o chatbot não deve depender diretamente de uma implementação específica do WhatsApp.
+
+Criar uma abstração/service para envio de mensagem caso isso ainda não exista.
+
+Exemplo conceitual:
+
+sendMessage(usuario, mensagem)
+
+Posteriormente essa função será conectada à WhatsApp Business API.
+
+==================================================
+16. PREPARAÇÃO PARA BANCO DE DADOS
+==================================================
+
+Não utilizar apenas objetos em memória como solução definitiva.
+
+A estrutura deve ser preparada para posteriormente persistir:
+
+usuário
+incidente
+alerta
+validação humana
+estado
+histórico
+
+Se o projeto já possui Supabase/PostgreSQL, verificar a estrutura atual antes de criar novas tabelas.
+
+Não criar migrations desnecessárias sem analisar o banco existente.
+
+==================================================
+17. REGRAS IMPORTANTES DO PROJETO
+==================================================
+
+Nunca afirmar:
+
+"Vazamento confirmado pela IA"
+
+A IA/software deve indicar:
+
+"Possível vazamento"
+"Possível anomalia"
+"Trecho provável"
+"Trecho prioritário para inspeção"
+
+A confirmação vem da pessoa.
+
+O fluxo é:
+
+Sistema identifica.
+Pessoa verifica.
+Pessoa confirma ou rejeita.
+Sistema registra.
+
+==================================================
+18. TESTES OBRIGATÓRIOS
+==================================================
+
+Criar ou atualizar testes para pelo menos:
+
+1. Mensagem normal.
+2. Recebimento de alerta.
+3. Estado AGUARDANDO_VALIDACAO.
+4. CONFIRMAR.
+5. REJEITAR.
+6. Resposta inválida.
+7. Retorno para IDLE.
+8. Usuários diferentes mantendo estados diferentes.
+9. Consulta de incidente.
+10. Normalização sem encerramento automático da ocorrência confirmada.
+
+Exemplo:
+
+Usuário A:
+alerta → confirmar
+
+Usuário B:
+alerta → rejeitar
+
+Os estados não podem se misturar.
+
+==================================================
+19. COMPATIBILIDADE COM O MVP FÍSICO
+==================================================
+
+O chatbot deve estar preparado para o MVP da maquete.
+
+O MVP terá:
+
+Duto 1:
+A — B — C
+
+Duto 2:
+D — E — F
+
+Duto 3:
+G — H — I
+
+Serão utilizados sensores de pressão e água.
+
+Um vazamento será simulado por uma válvula.
+
+O sistema deverá futuramente gerar algo como:
+
+"Possível vazamento — Duto 2
+Trecho provável: D–E"
+
+Depois disso:
+
+PortMind → WhatsApp → operador → confirmação/rejeição.
+
+O chatbot não deve depender da câmera ou Visão Computacional.
+
+==================================================
+20. O QUE EU QUERO QUE VOCÊ FAÇA
+==================================================
+
+Primeiro:
+
+1. Analise o código atual.
+2. Identifique como o chatbot está estruturado.
+3. Identifique quais partes ainda pertencem à versão antiga.
+4. Apresente um resumo do que precisa ser alterado.
+5. Depois implemente a reestruturação.
+
+Durante a implementação:
+
+- preservar TypeScript;
+- preservar a arquitetura atual quando possível;
+- não duplicar lógica;
+- não apagar código importante sem necessidade;
+- manter tipagem forte;
+- separar estado, regra de negócio, controller e rota;
+- preparar para banco de dados;
+- preparar para WhatsApp Business API;
+- preparar para receber alertas do PortMind.
+
+==================================================
+21. VALIDAÇÃO FINAL
+==================================================
+
+Depois de implementar:
+
+Executar:
+
+npx tsc --noEmit
+
+e:
+
+npm run dev
+
+Depois testar o fluxo:
+
+1. Criar/receber uma ocorrência.
+2. Enviar alerta para um usuário.
+3. Usuário recebe a possível ocorrência.
+4. Bot pergunta:
+
+"A detecção estava correta?"
+
+5. Usuário responde CONFIRMAR.
+6. Sistema registra confirmação.
+7. Testar REJEITAR.
+8. Confirmar que o estado da conversa é restaurado.
+9. Confirmar que usuários diferentes possuem estados independentes.
+
+Não considere a tarefa concluída apenas porque o servidor iniciou.
+
+A tarefa só estará concluída quando o fluxo de validação humana estiver funcionando ponta a ponta no backend.
+
+==================================================
+22. RESULTADO ESPERADO
+==================================================
+
+Quero que o chatbot deixe de ser um chatbot genérico de respostas fixas e passe a ser um componente operacional do PortMind AI.
+
+O fluxo central deve ser:
+
+SENSORES
+↓
+PORTMIND AI
+↓
+POSSÍVEL ANOMALIA
+↓
+TRECHO PROVÁVEL
+↓
+ALERTA
+↓
+WHATSAPP
+↓
+"A DETECÇÃO ESTAVA CORRETA?"
+↓
+CONFIRMAR / REJEITAR
+↓
+BACKEND
+↓
+ATUALIZAÇÃO DA OCORRÊNCIA
+↓
+HISTÓRICO
+
+Esse é o comportamento que deve orientar toda a reestruturação.
